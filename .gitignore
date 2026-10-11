@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-server/
+build/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Runtime data (never commit: contains user accounts and uploaded files)
+data/
+uploads/
+nas-data/
+app-data/
+mongo-data/
+server-data/

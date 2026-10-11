@@ -1,0 +1,30 @@
+# Cloud server (Ubuntu VM) with HTTPS on your domain.
+#   docker compose -f docker-compose.yml -f docker-compose.cloud.yml up -d --build
+# Needs in .env:  SITE_DOMAIN=archive.example.com   and   APP_PORT=127.0.0.1:3000
+# (the app is then reachable only through Caddy on https://SITE_DOMAIN)
+services:
+  caddy:
+    image: caddy:2
+    container_name: research_archive_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - SITE_DOMAIN=${SITE_DOMAIN:?Set SITE_DOMAIN in .env (your domain name)}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy-data:
+  caddy-config:

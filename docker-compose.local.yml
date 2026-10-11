@@ -1,0 +1,14 @@
+# Local test on a Windows/Mac laptop with Docker Desktop (not for the NAS).
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+# MongoDB keeps its data in a Docker volume (Windows folders often break MongoDB),
+# uploads go to ./nas-data/app-data next to the project.
+services:
+  app:
+    volumes:
+      - ./nas-data/app-data:/app-data
+  mongo:
+    volumes:
+      - mongo-local:/data/db
+
+volumes:
+  mongo-local:

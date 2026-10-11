@@ -1,0 +1,6 @@
+# HTTPS reverse proxy for a cloud server. Caddy gets a free Let's Encrypt
+# certificate for SITE_DOMAIN automatically (ports 80 and 443 must be open).
+{$SITE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}

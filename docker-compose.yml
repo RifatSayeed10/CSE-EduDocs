@@ -1,0 +1,70 @@
+# CSE EduDocs - production stack (app + MongoDB)
+# 1. cp .env.example .env   and fill in the values
+# 2. docker compose up -d --build
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: research-archive-app:latest
+    container_name: research_archive_app
+    restart: unless-stopped
+    init: true
+    # The NAS folder mounted at /app-data must be writable by this uid:gid
+    # (default 1000:1000 = the "node" user in the image). See NAS_DEPLOYMENT.md.
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    # AI_PROVIDER_*, AI_*, OCR_* settings are read from .env
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/app-data
+      - UPLOAD_DIR=/app-data/uploads
+      - DB_BACKUP_FILE=/app-data/archive-database.json
+      - REQUIRE_MONGODB=true
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:?Set MONGO_INITDB_ROOT_USERNAME in .env}:${MONGO_INITDB_ROOT_PASSWORD:?Set MONGO_INITDB_ROOT_PASSWORD in .env}@mongo:27017/research_archive?authSource=admin
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@cse.pust.ac.bd}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-}
+      - SEED_DEMO_DATA=${SEED_DEMO_DATA:-false}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - "${NAS_APP_DATA_PATH:-./nas-data/app-data}:/app-data"
+    depends_on:
+      mongo:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mongo:
+    # mongo:5.0 and newer need a CPU with AVX. Many NAS CPUs (Celeron, Atom, some
+    # Pentium/ARM) don't have it: if this container keeps restarting, set
+    # MONGO_IMAGE=mongo:4.4 in .env.
+    image: ${MONGO_IMAGE:-mongo:7.0}
+    container_name: research_archive_mongo
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE=research_archive
+    volumes:
+      - "${NAS_MONGO_DATA_PATH:-./nas-data/mongo-data}:/data/db"
+    healthcheck:
+      # mongosh exists in mongo >= 5, the old "mongo" shell in 4.4
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand(\"ping\")' || mongo --quiet --eval 'db.adminCommand(\"ping\")'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Database port is NOT published: only the app container can reach it.
